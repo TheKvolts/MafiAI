@@ -1,10 +1,14 @@
+
+# Define the source command for the virtual environment
+ACTIVATE= source venv/bin/activate
+
 venv:
 	python3 -m venv venv
 	@echo "Virtual environment created."
 
 install:
 	python3 -m pip install --upgrade pip
-	pip install -r requirements.txt
+	&& pip install -r requirements.txt
 	@echo "Requirements installed."
 
 run-mafia-bot: venv install

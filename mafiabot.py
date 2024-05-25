@@ -6,13 +6,17 @@ import time
 from openai import OpenAI
 import os
 
+# What would be helpful is if we had commands that could print what the bot was storing at any moment in time
+# ex. m!print_bot_dialog
+#
 
+# ONe of the problems that needs to be addressed is that players are being prompted serially. Need to do it in parallel.
 load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Configure OpenAI client
-openai_client = OpenAI(base_url="https://oai.hconeai.com/v1", api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(base_url="https://api.openai.com/v1", api_key=os.getenv("OPENAI_API_KEY"))
 
 bot_dialog = []
 players_dialog = []
@@ -73,6 +77,7 @@ commands = {
     'alive': '`m!alive` displays all the roles and their quantities that are still in play.',
     'dead': '`m!dead` displays the players in the graveyard and their roles (if roles are revealed upon death).',
     'time': '`m!time` displays the amount of time left, before the day or night ends.',
+    
     'narration': '`m!narration` toggles the narration setting',
     'visual': '`m!visual` toggles the visual setting',
     'context': '`m!context` sets the setting for the game',
