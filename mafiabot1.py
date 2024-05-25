@@ -13,6 +13,7 @@ import os
 # ONe of the problems that needs to be addressed is that players are being prompted serially. Need to do it in parallel.
 load_dotenv(dotenv_path='.env')
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+print(DISCORD_BOT_TOKEN)
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Configure OpenAI client
@@ -196,6 +197,8 @@ class Server:
             'doctor': 0,
             'mafia': 0
         }
+
+        
         self.night_weapon = 'knife'
         self.narration = True
         self.background = 'The story happens in the 20th century Europe...'    
