@@ -11,7 +11,7 @@ import os
 #
 
 # ONe of the problems that needs to be addressed is that players are being prompted serially. Need to do it in parallel.
-load_dotenv(dotenv_path='.env')
+load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
@@ -1264,6 +1264,9 @@ async def on_message(message):
             await message.channel.send("This function cannot be used in DMs.")
         else:
             func = to_func[query[0]]
+            print("message:", message)
+            print("message.author.id:", message.author.id)
+            print("servers[message.guild]:", servers[message.guild])
             await func(message, message.author.id, servers[message.guild])
     else:
         await invalid(message, servers[message.guild])

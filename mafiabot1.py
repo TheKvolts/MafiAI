@@ -11,9 +11,18 @@ import os
 #
 
 # ONe of the problems that needs to be addressed is that players are being prompted serially. Need to do it in parallel.
-load_dotenv(dotenv_path='.env')
+# Address this in on_Message.
+
+
+# First thing first, 
+# make a dictionary with keys that are rounds: 
+    # and values are a dictionary that contains the following:
+        # 1. A list of all the players that are alive : List
+        # 2. Round descriptions from GPT : List
+        # 3. World facts : List
+        # 4 Conversations : List
+load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-print(DISCORD_BOT_TOKEN)
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Configure OpenAI client
@@ -83,6 +92,7 @@ commands = {
     'visual': '`m!visual` toggles the visual setting',
     'context': '`m!context` sets the setting for the game',
     'verbose' : '`m!verbose` toggles GPT prediction on or off after every round',
+    'comms' : '`m!comms` toggles the predictorAI descriptions',
 }
 
 help_text = [
@@ -90,7 +100,7 @@ help_text = [
     "Type `m!help [command]` to receive details about the command itself.",
     "**1. Basic**: `help` `h2p` `start` `end`",
     "**2. Setup**: `roles` `set` `setup` `settings` `toggle` `setlimit` `join` `leave` `narration` `verbose` `visual` `context`",
-    "**3. In-game**: `vote` `unvote` `status` `players` `alive` `dead` `time`"
+    "**3. In-game**: `vote` `unvote` `status` `players` `alive` `dead` `time` `comms`"
 ]
 
 h2p_text = [
@@ -150,10 +160,22 @@ class PredictorAI:
         # Keep track of the world facts: Ex. (Round number, 'Kvolts has been killed')
         self.world_facts = []
 
+        # Keep track of bot narration each round
+        self.round_narrations = []
+
         self.round_descriptions = []
         # 0: [[' hey what's  up hello'], [' hey what's  up hello'], [' hey what's  up hello']]
-
+        self.conversations = []
         self.predictions = []  # A list of predictions after each .round.
+
+        self.rounds = {}
+        # First thing first, 
+        # make a dictionary with keys that are rounds: 
+            # and values are a dictionary that contains the following:
+        # 1. A list of all the players that are alive : List
+        # 2. Round descriptions from GPT : List
+        # 3. World facts : List
+        # 4 Conversations : List
 
 
 class Player:
@@ -335,7 +357,7 @@ async def game_end(channel, winner, server):  # end of game message (role reveal
     # flush remaining game state
     server.predictorAI.world_facts.append(bot_dialog)
     server.predictorAI.round_descriptions.append(players_dialog)
-    final_prediction = await m_predict_return(server);
+    final_prediction = await m_predict_return(server)
     server.running = 0
     await channel.send('\n'.join(
         [end_text[winner]] + ['The roles were as follows:'] + ['<@%s> : `%s`' % (player.id, player.role) for player in
@@ -435,6 +457,32 @@ async def daytime(channel, server):
         else:
             await channel.send('It was a quiet night, without any deaths.')
             bot_dialog += ["It was a quiet night, without any deaths."]
+    
+    # 1. Players
+    player_ids = [player.id for player in server.players.values() if player.alive]
+    names = [server.id_to_player[ids] for ids in player_ids]
+
+    # 2. Round descriptions
+    description = server.predictorAI.round_narrations[-1]
+
+    # 3. Facts
+    facts = server.predictorAI.world_facts[-1] if server.predictorAI.world_facts else []
+
+    # 4. Conversations
+    conversations = server.predictorAI.round_descriptions[-1] if server.predictorAI.round_descriptions else []
+
+    # 5. Predictions
+    predictions = server.predictorAI.predictions[-1] if server.predictorAI.predictions else []
+
+
+    convos = server.predictorAI.conversations
+
+    server.predictorAI.conversations = []
+    # All of it
+    info = {'players': names, 'descriptions': description, 'facts': facts, 'conversations': conversations, 'actual_convos': convos, 'predictions': predictions}
+    server.predictorAI.rounds[server.round] = info
+
+    # day start. Everything above is in the night still.        
     await channel.send(
         '*----------------DAY %d 🌞----------------* \nYou have %s minutes to decide upon a lynch.' % (server.round, str(server.settings['limit1'])))
 
@@ -448,6 +496,7 @@ async def daytime(channel, server):
     for player in server.players.values():  # reset all players' votes
         player.vote = None
 
+    # This waits for everyone's response
     while (server.settings['limit1'] == 'inf' or (time.time() - start_time) < server.settings[
         'limit1'] * 60) and server.running:
         if server.time != 'inf':
@@ -482,6 +531,7 @@ async def daytime(channel, server):
     server.predictorAI.world_facts.append(bot_dialog)
     server.predictorAI.round_descriptions.append(players_dialog)
 
+    
     bot_dialog = []
     players_dialog = []
         
@@ -729,7 +779,7 @@ async def m_start(message, author, server):
 
     random.shuffle(allRoles)
 
-    await message.channel.send('*----------------NEW MAFIAI GAME SESSION STARTED🕵️🕹️----------------*')
+    await message.channel.send('*----------------Welcome to MafiAI!----------------*')
 
     # narration background
     if server.narration:
@@ -756,14 +806,24 @@ async def m_start(message, author, server):
         role = allRoles.pop()
         player.role = role
         user = await discord_client.fetch_user(player.id)
-        await user.send('*----------------NEW MAFIAI GAME SESSION STARTED🕵️🕹️----------------*')
+        # await user.send('*----------------NEW MAFIAI GAME SESSION STARTED🕵️🕹️----------------*')
         await user.send('Welcome to MafiAI!')
         await user.send('Your role is `%s`.' % role)
+
+
+        # I think wait_for works serially. remove this.
         # Ask for character descriptions for potential use in murder scene
         if server.narration:
             await user.send('Please input a VERY short description of your character in this town (i.e old man, fisherman, janitor, butcher etc). This will be public to all players, so do not reveal your identity.')
-            response = await discord_client.wait_for('message', check=lambda m: m.author == user)
-            server.players[player.id].description = response.content
+            await user.send("Start with KEYWORD(s) 'I am': ")
+            await user.send("Ex. 'I am a chef'")
+    # Infinite Loop until all descriptions have been made.
+    while server.narration:
+        if await check_descriptions(server):
+            print("Descriptions complete!")
+            break
+        await asyncio.sleep(3)
+        # print("out here")
 
     await message.channel.send("*----------------STARRING⭐️----------------*")
 
@@ -783,13 +843,24 @@ async def m_start(message, author, server):
 
     predictor = PredictorAI(server.players, server.id_to_player)
     server.predictorAI = predictor
-    server.predictorAI.world_facts.append("Setting: " + setting)
+    server.predictorAI.round_narrations.append(setting)
 
 
     if server.settings['daystart']:
         await daytime(message.channel, server)
     else:
         await nighttime(message.channel, server)
+
+async def check_descriptions(server):
+    
+    for player in server.players.values():
+        # print(player.description)
+        
+        if player.alive and player.description == 'a normal human':
+            # print("returned 0")
+            return 0
+    print("return 1!!!")
+    return 1  # everyone alive has voted
 
 
 async def m_end(message, author, server):  # can only end game if currently playing (alive) or server mod/admin
@@ -1003,9 +1074,9 @@ async def m_leave(message, author, server):
             role = discord.utils.get(message.guild.roles, name='Mafia')
             message.author.remove_roles(role)
         return
-    server.players.pop(author)
-    server.predictorAI.players.pop(author)
-    allPlayers.pop(author)
+    # server.players.pop(author)
+    # server.predictorAI.players.pop(author)
+    # allPlayers.pop(author)
     await message.channel.send('<@%s> has left the game.' % str(author))
 
 
@@ -1155,9 +1226,9 @@ async def m_predict_return(server):
     names = []
     for player in server.predictorAI.players:
         names.append(server.id_to_player[player])
-    print("Current players:", server.predictorAI.current.values())
-    print("World facts:", server.predictorAI.world_facts)
-    print("Conversations:", server.predictorAI.round_descriptions)
+    # print("Current players:", server.predictorAI.current.values())
+    # print("World facts:", server.predictorAI.world_facts)
+    # print("Conversations:", server.predictorAI.round_descriptions)
 
     if not server.running:
         print("not running")
@@ -1181,6 +1252,37 @@ async def m_predict_return(server):
     except Exception as e:
         print(e)  # For debugging
 
+async def m_comms(message, author, server):
+    if not server.running: 
+        await message.channel.send('There is no ongoing game.')
+        return
+    
+    await message.channel.send('Messages from the bot:')
+    
+
+    if not server.predictorAI:
+        await message.channel.send('The predictor AI has not been initialized.')
+        return
+    else:
+        print("Players:", server.predictorAI.players)
+        await message.channel.send("Current players: [{}]".format([server.id_to_player[player] for player in server.predictorAI.players]))
+
+        print("Narrations:", server.predictorAI.round_narrations)
+        await message.channel.send(f"Narrations: {server.predictorAI.round_narrations}")
+
+        print("World facts:", server.predictorAI.world_facts)
+        await message.channel.send(f"World facts: {server.predictorAI.world_facts}")
+
+        print("Conversations:", server.predictorAI.round_descriptions)
+        await message.channel.send(f"Conversations: {server.predictorAI.round_descriptions}")
+        
+        print("Predictions:", server.predictorAI.predictions)
+        await message.channel.send(f"Predictions: {server.predictorAI.predictions}")
+
+        print("Rounds:", server.predictorAI.rounds)
+        await message.channel.send(f"Rounds: {server.predictorAI.rounds[server.round]}")
+
+        
 to_func = {
     'help': m_help,  # DM
     'h2p': m_h2p,  # DM
@@ -1205,6 +1307,8 @@ to_func = {
     'visual':m_visual,
     'context':m_context,
     'verbose' : m_verbose,
+    'comms' : m_comms,
+
 }
 
 dm_funcs = [
@@ -1217,8 +1321,16 @@ dm_funcs = [
 @discord_client.event
 async def on_message(message):
     print(f"{message.author}: {message.content}")
+    # print(dir(message.author.name))
+    # print(message.author.id)
+    # print(message.author.name)
+    # print("message.guild:", message.guild)
+    # message.channel.type => 'private' if DM'ing the bot.
+    # message.channel.type => 'text' if in the server.
+    # print([vals for vals in discord.ChannelType])
+    # print(message.channel.type)
 
-    # print("                on message running")
+    # Bot descriptions and round information. 
     global bot_dialog, players_dialog
     if (not message.content.startswith("m!")):
         if (
@@ -1226,20 +1338,22 @@ async def on_message(message):
             and message.author.id in allPlayers
         ):
             players_dialog.append((message.author.name, message.content))
+
         if (
             message.channel.type != discord.ChannelType.private
             and message.author.id not in allPlayers
             and "placed their vote" in message.content
         ):
             bot_dialog.append((message.author.name, message.content))
+
+
     if message.guild not in servers:
         servers[message.guild] = Server()
-
+    
     if (
         message.channel.type == discord.ChannelType.private
         and message.author.id in allPlayers
     ):
-        # print('in allPlayers')
         server = servers[allPlayers[message.author.id]]
         player = server.players[message.author.id]
         if (
@@ -1250,20 +1364,25 @@ async def on_message(message):
         ):
             await check_action(player, server, message)
 
-    if (
-        message.author == discord_client.user
-        or len(message.content) < 2
-        or message.content[:2] != "m!"
-    ):
+
+    if (message.content.startswith('I am') and message.channel.type == discord.ChannelType.private):
+        if server.players[message.author.id].description == 'a normal human':
+            server.players[message.author.id].description = message.content
+        else:
+            await message.channel.send('You have already submitted a description.')
+        
+
+    if (message.author == discord_client.user or len(message.content) < 2 or message.content[:2] != "m!"):
         return
+    
+    if (not message.content.startswith("m!") and message.channel.type != discord.ChannelType.private):
+        server.predictorAI.conversations.append(f"{message.author.name}: {message.content}")
+
+
 
     query = message.content[2:].split()
-
     if len(query) and query[0] in commands:
-        if (
-            message.channel.type == discord.ChannelType.private
-            and query[0] not in dm_funcs
-        ):
+        if (message.channel.type == discord.ChannelType.private and query[0] not in dm_funcs):
             await message.channel.send("This function cannot be used in DMs.")
         else:
             func = to_func[query[0]]
