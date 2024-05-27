@@ -1,0 +1,68 @@
+{
+    "1": {
+        "players": [
+            "kvolts"
+        ],
+        "summary": [
+            null
+        ],
+        "facts": [
+            "It was a quiet night, without any deaths."
+        ],
+        "conversations": [],
+        "predictions": []
+    },
+    "2": {
+        "players": [
+            "kvolts"
+        ],
+        "summary": [
+            "Last night in the town of kvolts was a quiet one, with no deaths reported. The townspeople seem to be on edge as they discuss recent events, but overall the atmosphere is relatively calm. Stay alert and continue working together to determine the best course of action."
+        ],
+        "facts": [
+            "kvolts (<@189121002079256577>) has chosen to abstain.",
+            "The townspeople have decided to lynch nobody.",
+            "It was a quiet night, without any deaths."
+        ],
+        "conversations": [
+            "kvolts: wohah"
+        ],
+        "predictions": [
+            "Based on the information provided for round 1, it appears that the town of kvolts had a quiet night with no deaths reported. kvolts chose to abstain and the townspeople decided to lynch nobody. From the limited information available, it is not possible to definitively identify the mafia player at this stage.\n\nHowever, based on deductive reasoning and the lack of any concrete evidence pointing towards a specific player, it is not feasible to make an accurate prediction on who the mafia player might be in round 1. The situation seems to be relatively calm with no significant leads or suspicions to go off of.\n\nI will continue to monitor the game and provide a prediction in the following rounds as more information becomes available."
+        ]
+    },
+    "3": {
+        "players": [
+            "kvolts"
+        ],
+        "summary": [
+            "Summary for the Townspeople:\nLast night in the town of kvolts was a quiet one, with no deaths reported. The townspeople are on edge as they discuss recent events but overall the atmosphere is relatively calm. kvolts has chosen to abstain, and the townspeople have decided to lynch nobody. It appears that there are no significant leads or suspicions at this point. Stay alert and continue working together to determine the best course of action as the game progresses."
+        ],
+        "facts": [
+            "kvolts (<@189121002079256577>) has chosen to abstain.",
+            "The townspeople have decided to lynch nobody.",
+            "It was a quiet night, without any deaths."
+        ],
+        "conversations": [
+            "kvolts: facts",
+            "kvolts: im innocent!!"
+        ],
+        "predictions": [
+            "Based on the information provided for round 1 and round 2, it is still not possible to definitively identify the mafia player at this stage. The town of kvolts had a quiet night with no deaths reported, kvolts chose to abstain, and the townspeople decided to lynch nobody. There are no significant leads or suspicions to go off of.\n\nHowever, as the game progresses and more rounds are played, patterns may start to emerge that could help identify the mafia player. At this point, with the limited information available, it is not feasible to make an accurate prediction on who the mafia player might be.\n\nI will continue to monitor the game and provide a prediction in the following rounds."
+        ]
+    },
+    "endgame": {
+        "players": [],
+        "summary": [
+            "Summary for the Townspeople:\nLast night in the town of kvolts was uneventful, as no deaths were reported. The townspeople remain cautious and vigilant as they discuss recent events. kvolts has chosen to abstain, and the decision was made to lynch nobody. The atmosphere in the town is relatively calm with no significant leads or suspicions at this point. It is crucial for everyone to stay alert and work together to determine the best course of action as the game progresses."
+        ],
+        "facts": [
+            "kvolts (<@189121002079256577>) chose to vote for kvolts (<@189121002079256577>).",
+            "The townspeople have lynched kvolts."
+        ],
+        "conversations": [
+            "kvolts: okay im done"
+        ],
+        "predictions": []
+    }
+}

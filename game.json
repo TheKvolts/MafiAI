@@ -1,0 +1,40 @@
+{
+    "1": {
+        "players": [
+            "kvolts"
+        ],
+        "descriptions": null,
+        "facts": [
+            "It was a quiet night, without any deaths."
+        ],
+        "conversations": [],
+        "predictions": []
+    },
+    "2": {
+        "players": [
+            "kvolts"
+        ],
+        "descriptions": null,
+        "facts": [
+            "kvolts (<@189121002079256577>) has chosen to abstain.",
+            "The townspeople have decided to lynch nobody.",
+            "It was a quiet night, without any deaths."
+        ],
+        "conversations": [
+            "kvolts: hmmm"
+        ],
+        "predictions": "Based on the information provided, it is difficult to determine the mafia player after the first round since there were no deaths and nobody was lynched. However, given that there was only one player designated as the mafia at the beginning of the game and no deaths or lynches occurred, it is likely that the mafia player is \"kvolts\". This is a logical deduction based on the process of elimination, as there are no other suspected mafia players at this point in the game."
+    },
+    "endgame": {
+        "players": [],
+        "descriptions": null,
+        "facts": [
+            "kvolts (<@189121002079256577>) chose to vote for kvolts (<@189121002079256577>).",
+            "The townspeople have lynched kvolts."
+        ],
+        "conversations": [
+            "kvolts: okay im done!"
+        ],
+        "predictions": "Based on the information provided, it is difficult to determine the mafia player after the first round since there were no deaths and nobody was lynched. However, given that there was only one player designated as the mafia at the beginning of the game and no deaths or lynches occurred, it is likely that the mafia player is \"kvolts\". This is a logical deduction based on the process of elimination, as there are no other suspected mafia players at this point in the game."
+    }
+}
