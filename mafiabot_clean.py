@@ -9,7 +9,7 @@ import json
 
 
 # TODO
-# Prompted serially or in parallel? Should be parallel now - ? 
+# Prompted serially or in parallel? Should be parallel now - ?
 # Fix conversations. DONE.
 # Then fix world facts. DONE.
 # Then fix narration descriptions after every round. DONE.
@@ -20,7 +20,8 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Configure OpenAI client
-openai_client = OpenAI(base_url="https://api.openai.com/v1", api_key=os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAI(base_url="https://api.openai.com/v1",
+                       api_key=os.getenv("OPENAI_API_KEY"))
 
 
 # Define intents
@@ -81,8 +82,8 @@ commands = {
     'narration': '`m!narration` toggles the narration setting',
     'visual': '`m!visual` toggles the visual setting',
     'context': '`m!context` sets the setting for the game',
-    'verbose' : '`m!verbose` toggles GPT prediction on or off after every round',
-    'comms' : '`m!comms` toggles the predictorAI descriptions',
+    'verbose': '`m!verbose` toggles GPT prediction on or off after every round',
+    'comms': '`m!comms` toggles the predictorAI descriptions',
 }
 
 help_text = [
@@ -136,6 +137,7 @@ end_text = {
     'Town': 'The villagers win!'
 }
 
+
 class PredictorAI:
     def __init__(self, players, ids):
 
@@ -144,7 +146,7 @@ class PredictorAI:
 
         # Keep track of the current players in the game. List of player IDs.
         self.current = ids.copy()
-      
+
         # Keep track of facts each round
         self.facts = []
         # Keep track of bot narration each round
@@ -167,13 +169,14 @@ class Player:
         self.role = None
         self.vote = None
         self.server = server
-        self.ingame = 1  # changes to 0 upon m!leave, will be removed from server.players upon game end
+        # changes to 0 upon m!leave, will be removed from server.players upon game end
+        self.ingame = 1
         self.options = []  # nighttime options for power role
         self.action = 0  # if a power role, if has performed night action or not
         self.cur_choice = None  # if a power role, their choice for the night
         self.lst_choice = None  # if parity cop, last choice
-        
-        self.description = 'a normal human'  # description of character for potential use in crime scene generation
+        # description of character for potential use in crime scene generation
+        self.description = 'a normal human'
         self.image_url = None
 
 
@@ -184,7 +187,8 @@ class Server:
         self.phase = 0  # 0 for night, 1 for day
         self.actions = 0  # how many actions remain during nighttime
         self.time = 0  # how much time remains in the phase
-        self.round = 0  # what day/night of the game it is (e.g. day 1, night 2, etc)
+        # what day/night of the game it is (e.g. day 1, night 2, etc)
+        self.round = 0
         self.saves = []  # list of doctor saves (by ID)
         self.settings = {
             'daystart': 0,  # game starts during daytime
@@ -203,16 +207,15 @@ class Server:
             'mafia': 0
         }
 
-        
         self.night_weapon = 'knife'
         self.narration = True
-        self.background = 'The story happens in the 20th century Europe...'    
+        self.background = 'The story happens in the 20th century Europe...'
         self.visual = False
         self.context = '20th century europe'
         self.style = 'Agatha Christie'  # style of narration for crime scene generation
         self.verbose = False
         self.predictorAI = None
-        self.id_to_player = {} # dictionary mapping player IDs to a Player name
+        self.id_to_player = {}  # dictionary mapping player IDs to a Player name
 
 
 power_roles = ['normalcop', 'paritycop', 'doctor', 'mafia']
@@ -222,8 +225,46 @@ servers = {}  # dictionary mapping server IDs to server class
 
 allPlayers = {}  # dictionary mapping player IDs to server they're playing in
 
+# player removed when m!leave
+async def gpt_query(messages):
+    try:
+        response = openai_client.chat.completions.create(
+            messages=messages,
+            model="gpt-3.5-turbo",
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(e)  # For debugging
+        return None
 
-async def death(channel, player, server, lynch:bool):
+
+async def gpt_query_single(prompt):
+    messages = [
+        {
+            "role": "user",
+            "content": prompt,
+        }
+    ]
+    return await gpt_query(messages)
+
+
+async def dalle_query(prompt):
+    try:
+        response = openai_client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1792x1024",
+            quality="standard",
+            n=1,
+        )
+        print(response.data[0])  # For debugging
+        return response.data[0].url
+    except Exception as e:
+        print(e)  # For debugging
+        return "DALL-E Refused to generate image ):"
+
+
+async def death(channel, player, server, lynch: bool):
     server.players[player].alive = 0
 
     if server.narration:
@@ -233,7 +274,7 @@ async def death(channel, player, server, lynch:bool):
         weapon = server.night_weapon
         background = server.background
         style = server.style
-        
+
         if not lynch:
             prompt = f'''
             For our novel style mafia game, describe a mysterious and gruesome murder scene in style of {style}, 
@@ -241,9 +282,7 @@ async def death(channel, player, server, lynch:bool):
             found by people upon sunrise. Murderer unknown. Make sure it doesn't conflict with the background: {background}.
             Keep in one paragraph and within 100 words.
             '''
-            # murder_scene_description = await gpt_query_single(prompt)
-            murder_scene_description = await gpt_call(prompt)
-
+            murder_scene_description = await gpt_query_single(prompt)
             if murder_scene_description is None or murder_scene_description.startswith("Sorry"):
                 # if gpt failed to generate the description
                 await channel.send(
@@ -253,10 +292,10 @@ async def death(channel, player, server, lynch:bool):
 
             # if server.visual:
             #     image_prompt = f'''
-            #     Comics scene: A mysterious character (X) attacked the character (V) and escaped 
+            #     Comics scene: A mysterious character (X) attacked the character (V) and escaped
             #     Way: with {weapon}
             #     Character X: just a black shadow escaping or leaving, facing away
-            #     Character V: 
+            #     Character V:
             #     {murder_scene_description}
             #     Make sure there's no trace of who did this.
             #     Make sure it doesn't conflict with the background: {background}.
@@ -265,11 +304,10 @@ async def death(channel, player, server, lynch:bool):
             #     image = await dalle_query(image_prompt)
             #     if image is not None:
             #         await channel.send(image)
-                        
+
         else:
             prompt = f"You are a game master for a game of Mafia.\nThe townspeople have lynched a character described as {server.players[player].description}. Write a short tombstone message for the character. Keep it vague and avoid any gruesome details."
-            # response = await gpt_query_single(prompt)
-            response = await gpt_call(prompt)
+            response = await gpt_query_single(prompt)
             if response != None:
                 await channel.send("The tombstone reads: " + response)
             else:
@@ -279,8 +317,10 @@ async def death(channel, player, server, lynch:bool):
         await channel.send(f'Their role was `{server.players[player].role}`.')
 
 
-async def game_end(channel, winner, server):  # end of game message (role reveal, congratulation of winners)
-    player_ids = [player.id for player in server.players.values() if player.alive]
+# end of game message (role reveal, congratulation of winners)
+async def game_end(channel, winner, server):
+    player_ids = [player.id for player in server.players.values()
+                  if player.alive]
     names = [server.id_to_player[ids] for ids in player_ids]
     facts = server.predictorAI.facts
     conversations = server.predictorAI.conversations
@@ -288,12 +328,13 @@ async def game_end(channel, winner, server):  # end of game message (role reveal
     final_prediction = await m_predict_return(server)
     server.predictorAI.predictions.append(final_prediction)
 
+    # TODO Removed descriptions because it's repeated. In the same round.. 
     # Return all information or just the conversations and prediction?
-    info = {'players': names, 'facts': facts, 'conversations': conversations, 'predictions': final_prediction}
+    info = {'players': names, 'facts': facts,
+            'conversations': conversations, 'predictions': final_prediction}
     server.predictorAI.rounds['endgame'] = info
     # Save as a json file with spacing
     await save_json(server)
-
 
     server.running = 0
     await channel.send('\n'.join(
@@ -307,7 +348,7 @@ async def game_end(channel, winner, server):  # end of game message (role reveal
     # for idx, message in enumerate(server.predictorAI.predictions):
     #     await channel.send("Day " + str(idx + 1) + ": " + message)
     await channel.send('Final Prediction: ' + final_prediction)
-    
+
 
 async def check_end(channel, server):
     if not sum([player.role == 'mafia' for player in server.players.values() if player.alive]):  # no mafia remaining
@@ -335,7 +376,8 @@ async def daytime(channel, server):
     if server.settings['daystart']:
         server.round += 1
 
-    if not (server.settings['daystart'] and server.round == 1):  # night actions were taken
+    # night actions were taken
+    if not (server.settings['daystart'] and server.round == 1):
         server.saves = []
         for player in server.players.values():
             if player.alive and player.role == 'normalcop':  # normal cop report
@@ -368,8 +410,8 @@ async def daytime(channel, server):
                 server.saves.append(player.cur_choice)
 
         # mafia kill
-
-        tars = [player.cur_choice for player in server.players.values() if (player.alive and player.role == 'mafia')]
+        tars = [player.cur_choice for player in server.players.values() if (
+            player.alive and player.role == 'mafia')]
         kill = None
         for tar in tars:
             if tars.count(tar) > len(tars) / 2:
@@ -380,18 +422,20 @@ async def daytime(channel, server):
             await death(channel, kill.id, server, lynch=False)
 
             server.predictorAI.current.pop(kill.id)
-            server.predictorAI.facts.append('Player %s has been killed in the night!.' % server.id_to_player[kill.id])
+            server.predictorAI.facts.append(
+                'Player %s has been killed in the night!.' % server.id_to_player[kill.id])
 
             if await check_end(channel, server):
                 return
         else:
             msg = 'It was a quiet night, without any deaths.'
             await channel.send(msg)
-           
+
             server.predictorAI.facts.append(msg)
-    
+
     # 1. Players
-    player_ids = [player.id for player in server.players.values() if player.alive]
+    player_ids = [player.id for player in server.players.values()
+                  if player.alive]
     names = [server.id_to_player[ids] for ids in player_ids]
     # 2. Round descriptions
     summary = server.predictorAI.summary_round
@@ -403,7 +447,8 @@ async def daytime(channel, server):
     predictions = server.predictorAI.predictions
 
     # All of it
-    info = {'players': names, 'summary': summary, 'facts': facts, 'conversations': conversations, 'predictions': predictions}
+    info = {'players': names, 'summary': summary, 'facts': facts,
+            'conversations': conversations, 'predictions': predictions}
     server.predictorAI.rounds[server.round] = info
     # Save as a json file with spacing
     await save_json(server)
@@ -414,7 +459,7 @@ async def daytime(channel, server):
     server.predictorAI.conversations = []
     server.predictorAI.predictions = []
 
-    # day start. Everything above is in the night still.  
+    # day start. Everything above is in the night still.
     await channel.send(
         '*----------------DAY %d 🌞----------------* \nYou have %s minutes to decide upon a lynch.' % (server.round, str(server.settings['limit1'])))
     prompt = f'Given {info}, make a summary for the townspeople to read. Do not make any assumptions about any players, and try to be as unbias as possible. You are simply noting players who have died, the tone of the conversation taking place, and any other relevant information.'
@@ -434,9 +479,10 @@ async def daytime(channel, server):
 
     # This waits for everyone's response
     while (server.settings['limit1'] == 'inf' or (time.time() - start_time) < server.settings[
-        'limit1'] * 60) and server.running:
+            'limit1'] * 60) and server.running:
         if server.time != 'inf':
-            server.time = server.settings['limit1'] * 60 - (time.time() - start_time)
+            server.time = server.settings['limit1'] * \
+                60 - (time.time() - start_time)
         if await check_votes(channel, server):
             break
         await asyncio.sleep(1)
@@ -458,12 +504,13 @@ async def daytime(channel, server):
         await channel.send('The townspeople have lynched <@%s>.' % str(lynch))
         # server.predictorAI.deaths.append((server.round, server.id_to_player[lynch]))
         server.predictorAI.current.pop(lynch)
-        
-        server.predictorAI.facts.append('The townspeople have lynched %s.' % server.id_to_player[lynch])
+
+        server.predictorAI.facts.append(
+            'The townspeople have lynched %s.' % server.id_to_player[lynch])
         await death(channel, lynch, server, lynch=True)
         if await check_end(channel, server):
             return
-    
+
     gpt_prediction = await m_predict_return(server)
     server.predictorAI.predictions.append(gpt_prediction)
 
@@ -479,9 +526,11 @@ options_text = {
     'doctor': 'Please select a player to save, by sending the number corresponding to your choice:'
 }
 
+
 async def save_json(server):
-    with open('rounds.json', 'w') as f:
+    with open('./rounds/rounds.json', 'w') as f:
         json.dump(server.predictorAI.rounds, f, indent=4)
+
 
 async def get_options(player, server):
     player.options = []
@@ -558,7 +607,8 @@ async def m_maf(player, server, choice):
     target = player.options[choice][1].name
     await user.send('You have selected **%s** as your target to kill.' % target)
 
-    tars = [player.cur_choice for player in server.players.values() if (player.alive and player.role == 'mafia')]
+    tars = [player.cur_choice for player in server.players.values() if (
+        player.alive and player.role == 'mafia')]
     maj = None
     for tar in tars:
         if tars.count(tar) > len(tars) / 2:
@@ -621,11 +671,13 @@ async def nighttime(channel, server):
     server.time = server.settings['limit2']
     if server.time != 'inf':
         server.time *= 60  # put time in seconds
-    server.actions = sum([player.alive and player.role in power_roles for player in server.players.values()])
+    server.actions = sum(
+        [player.alive and player.role in power_roles for player in server.players.values()])
     server.saves = []
 
     # villagers' voting for the night weapon - so that everyone is typing something at night
-    server.night_weapon = random.choice(['knife', 'gun', 'poison', 'rope', 'bare hands'])
+    server.night_weapon = random.choice(
+        ['knife', 'gun', 'poison', 'rope', 'bare hands'])
 
     mafias = []
 
@@ -644,9 +696,10 @@ async def nighttime(channel, server):
 
     start_time = time.time()
     while (server.settings['limit2'] == 'inf' or (time.time() - start_time) < server.settings[
-        'limit2'] * 60) and server.running and server.actions:
+            'limit2'] * 60) and server.running and server.actions:
         if server.time != 'inf':
-            server.time = server.settings['limit2'] * 60 - (time.time() - start_time)
+            server.time = server.settings['limit2'] * \
+                60 - (time.time() - start_time)
         await asyncio.sleep(1)
 
     await daytime(channel, server)
@@ -721,8 +774,9 @@ async def m_start(message, author, server):
                 Do not include anything that would be explicit, or that would violate the guideline's of DALL-E image generation prompts.
                 Do not include anything about drugs (like cigars) or crime. DO NOT mention anything about mafia, or related violent gameplay mechanics.
                 '''
-        
-        setting = await gpt_call(prompt)
+        # TODO
+        # setting = await gpt_query_single(prompt) # Uncomment later
+        setting = None
         if setting is None:
             await message.channel.send("The story happened in a small village in the 19th century.")
         else:
@@ -741,21 +795,19 @@ async def m_start(message, author, server):
         # await user.send('*----------------NEW MAFIAI GAME SESSION STARTED🕵️🕹️----------------*')
         await user.send('Welcome to MafiAI! Your role is `%s`.' % role)
 
-
         # I think wait_for works serially. remove this.
         # Ask for character descriptions for potential use in murder scene
         if server.narration:
             await user.send("\n Describe yourself! (ie. old man, fisherman, janitor, etc.)")
             # await user.send('Please input a VERY short description of your character in this town (i.e old man, fisherman, janitor, butcher etc). This will be public to all players, so do not reveal your identity.')
             await user.send("\n Start with KEYWORD(s) 'I am'\n(Example: 'I am a chef')")
-            # await user.send("Ex. 'I am a chef'")
+
     # Infinite Loop until all descriptions have been made.
     while server.narration:
         if await check_descriptions(server):
             print("Descriptions complete!")
             break
         await asyncio.sleep(2)
-        # print("out here")
 
     await message.channel.send("*----------------STARRING⭐️----------------*")
 
@@ -773,22 +825,21 @@ async def m_start(message, author, server):
     server.running = 1
     server.round = 0
 
-    # Initialize the predictorAI.
     predictor = PredictorAI(server.players, server.id_to_player)
     server.predictorAI = predictor
     server.predictorAI.summary_round.append(setting)
-
 
     if server.settings['daystart']:
         await daytime(message.channel, server)
     else:
         await nighttime(message.channel, server)
 
+
 async def check_descriptions(server):
-    
+
     for player in server.players.values():
         # print(player.description)
-        
+
         if player.alive and player.description == 'a normal human':
             # print("returned 0")
             return 0
@@ -796,7 +847,8 @@ async def check_descriptions(server):
     return 1  # everyone alive has voted
 
 
-async def m_end(message, author, server):  # can only end game if currently playing (alive) or server mod/admin
+# can only end game if currently playing (alive) or server mod/admin
+async def m_end(message, author, server):
     if not server.running:
         await message.channel.send('There is no ongoing game to end.')
         return
@@ -816,7 +868,8 @@ async def m_narration(message, author, server):
         return m.author == message.author and m.channel == message.channel and m.content.lower() in ["yes", "no", "y", "n"]
 
     try:
-        reply = await discord_client.wait_for('message', timeout=120.0, check=check)  # 30 seconds to respond
+        # 30 seconds to respond
+        reply = await discord_client.wait_for('message', timeout=120.0, check=check)
         if reply.content.lower() == "yes" or reply.content.lower() == "y":
             server.narration = not server.narration
             new_state = "enabled" if server.narration else "disabled"
@@ -825,6 +878,7 @@ async def m_narration(message, author, server):
             await message.channel.send('Narration setting unchanged.')
     except asyncio.TimeoutError:
         await message.channel.send('No response received. Narration setting remains unchanged.')
+
 
 async def m_visual(message, author, server):
     current_state = "enabled" if server.visual else "disabled"
@@ -836,7 +890,8 @@ async def m_visual(message, author, server):
         return m.author == message.author and m.channel == message.channel and m.content.lower() in ["yes", "no", "y", "n"]
 
     try:
-        reply = await discord_client.wait_for('message', timeout=120.0, check=check)  # 30 seconds to respond
+        # 30 seconds to respond
+        reply = await discord_client.wait_for('message', timeout=120.0, check=check)
         if reply.content.lower() == "yes" or reply.content.lower() == "y":
             server.visual = not server.visual
             new_state = "enabled" if server.visual else "disabled"
@@ -845,6 +900,7 @@ async def m_visual(message, author, server):
             await message.channel.send('Generative visuals setting unchanged.')
     except asyncio.TimeoutError:
         await message.channel.send('No response received. Generative visuals setting remains unchanged.')
+
 
 async def m_verbose(message, author, server):
     current_state = "enabled" if server.verbose else "disabled"
@@ -856,7 +912,8 @@ async def m_verbose(message, author, server):
         return m.author == message.author and m.channel == message.channel and m.content.lower() in ["yes", "no", "y", "n"]
 
     try:
-        reply = await discord_client.wait_for('message', timeout=120.0, check=check)  # 30 seconds to respond
+        # 30 seconds to respond
+        reply = await discord_client.wait_for('message', timeout=120.0, check=check)
         if reply.content.lower() == "yes" or reply.content.lower() == "y":
             server.verbose = not server.verbose
             new_state = "enabled" if server.verbose else "disabled"
@@ -866,6 +923,7 @@ async def m_verbose(message, author, server):
     except asyncio.TimeoutError:
         await message.channel.send('No response received. Setting remains unchanged.')
 
+
 async def m_context(message, author, server):
     await message.channel.send(f'Please provide any kind of context or background to shape the experience of your mafia game! The current context is {server.context}')
 
@@ -874,7 +932,8 @@ async def m_context(message, author, server):
         return m.author == message.author and m.channel == message.channel
 
     try:
-        reply = await discord_client.wait_for('message', timeout=120.0, check=check)  # 30 seconds to respond
+        # 30 seconds to respond
+        reply = await discord_client.wait_for('message', timeout=120.0, check=check)
         server.context = reply.content
         await message.channel.send(f'Context successfully updated. The context is now {server.context}')
 
@@ -985,7 +1044,8 @@ async def m_join(message, author, server):
 
 
 async def m_leave(message, author, server):
-    if author not in allPlayers or allPlayers[author] != message.guild:  # not server they're playing in
+    # not server they're playing in
+    if author not in allPlayers or allPlayers[author] != message.guild:
         await message.channel.send('<@%s>, you are not currently part of the game in this server.' % str(author))
         return
     if server.running and author in server.players:
@@ -996,14 +1056,15 @@ async def m_leave(message, author, server):
             if server.settings['continue']:
                 await death(message.channel, author, server)
                 if not server.phase and server.players[author].role in power_roles and not server.players[
-                    author].action:  # if nighttime and power role unfulfilled
+                        author].action:  # if nighttime and power role unfulfilled
                     server.actions -= 1
                 await check_end(message.channel, server)
             else:
                 await game_end(message.channel, 'None', server)
         else:
             server.players[author].ingame = 0
-            allPlayers.pop(author)  # allows player to join game in different server
+            # allows player to join game in different server
+            allPlayers.pop(author)
             role = discord.utils.get(message.guild.roles, name='Mafia')
             message.author.remove_roles(role)
         return
@@ -1018,7 +1079,7 @@ async def m_vote(message, author, server):
         await message.channel.send('The game has not yet started. Don\'t be so hasty to vote!')
         return
     if author not in server.players or not server.players[
-        author].alive or not server.phase:  # not playing, not alive, night
+            author].alive or not server.phase:  # not playing, not alive, night
         await message.channel.send('You cannot vote!')
         return
     query = message.content.split()
@@ -1033,10 +1094,10 @@ async def m_vote(message, author, server):
     except ValueError:
         await message.channel.send('That is an invalid voting target. Vote in the form `m!vote @user`.')
         return
-    
+
     user = server.id_to_player[author]
     target_id = int(tar[2:-1])
-    if target_id not in allPlayers: # voted for the bot.
+    if target_id not in allPlayers:  # voted for the bot.
         msg = f"{user} (<@{str(author)}>) has chosen to abstain."
         await message.channel.send(msg)
         server.predictorAI.facts.append(msg)
@@ -1046,7 +1107,6 @@ async def m_vote(message, author, server):
         server.predictorAI.facts.append(msg)
 
     # await message.channel.send('<@%s> has placed their vote on <@%s>.' % (str(author), str(tar[2:-1])))
-    
 
     server.players[author].vote = int(tar[2:-1])
 
@@ -1056,7 +1116,7 @@ async def m_unvote(message, author, server):
         await message.channel.send('The game has not yet started. There\'s nobody to unvote!')
         return
     if author not in server.players or not server.players[
-        author].alive or not server.phase:  # not playing, not alive, night
+            author].alive or not server.phase:  # not playing, not alive, night
         await message.channel.send('You cannot change your vote at this time.')
         return
     server.players[author].vote = None
@@ -1068,7 +1128,7 @@ async def m_status(message, author, server):
         await message.channel.send('The game has not yet started. There are no votes in effect.')
         return
     if author not in server.players or not server.players[
-        author].alive or not server.phase:  # not playing, not alive, night
+            author].alive or not server.phase:  # not playing, not alive, night
         await message.channel.send('Daytime is not in session. There are no votes in effect.')
         return
     num = sum([player.alive for player in server.players.values()])
@@ -1079,11 +1139,14 @@ async def m_status(message, author, server):
         if not player.alive:
             continue
         if player.vote == discord_client.user.id:
-            msg.append('<@%s> is currently voting for a no-lynch.' % str(player.id))
+            msg.append('<@%s> is currently voting for a no-lynch.' %
+                       str(player.id))
         elif player.vote == None:
-            msg.append('<@%s> is currently voting for nobody.' % str(player.id))
+            msg.append('<@%s> is currently voting for nobody.' %
+                       str(player.id))
         else:
-            msg.append('<@%s> is currently voting <@%s>' % (str(player.id), player.vote))
+            msg.append('<@%s> is currently voting <@%s>' %
+                       (str(player.id), player.vote))
             if player.vote not in count:
                 count[player.vote] = 1
             else:
@@ -1099,11 +1162,13 @@ async def m_status(message, author, server):
     msg.append('Voting summary:')
     for i in range(num, -1, -1):
         if count2[i]:
-            msg.append(str(i) + ' vote(s) on: ' + ', '.join(['<@%s>' % str(key) for key in count2[i]]))
+            msg.append(str(i) + ' vote(s) on: ' +
+                       ', '.join(['<@%s>' % str(key) for key in count2[i]]))
 
     msg.append('No lynch: %d vote(s)' % sum(
         [player.vote == discord_client.user.id for player in server.players.values() if player.alive]))
-    msg.append('Nobody: %d vote(s)' % sum([player.vote == None for player in server.players.values() if player.alive]))
+    msg.append('Nobody: %d vote(s)' % sum(
+        [player.vote == None for player in server.players.values() if player.alive]))
     await message.channel.send('\n'.join([line for line in msg]))
 
 
@@ -1167,7 +1232,7 @@ async def m_time(message, author, server):
         else:
             await message.channel.send('There are %d minutes and %d seconds remaining in the night.' % (
                 int(server.time) / 60, int(server.time) % 60))
-            
+
 
 async def m_predict_return(server):
     names = []
@@ -1196,12 +1261,12 @@ async def m_predict_return(server):
     except Exception as e:
         print(e)  # For debugging
 
+
 async def m_comms(message, author, server):
-    if not server.running: 
+    if not server.running:
         await message.channel.send('There is no ongoing game.')
         return
-    
-    
+
     if not server.predictorAI:
         await message.channel.send('The predictor AI has not been initialized.')
         return
@@ -1222,8 +1287,9 @@ async def m_comms(message, author, server):
         # print("Rounds:", server.predictorAI.rounds)
         # await message.channel.send(f"Rounds: {server.predictorAI.rounds[server.round]}")
 
+
 async def gpt_call(prompt):
-    try: 
+    try:
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -1233,32 +1299,15 @@ async def gpt_call(prompt):
                 }
             ],
             temperature=1,
-            max_tokens=256, # decrease this maybe?
+            max_tokens=256,  # decrease this maybe?
         )
         result = response.choices[0].message.content
-        return result # Await here?
+        return result  # Await here?
     except Exception as e:
         print(e)
         return None
 
-async def dalle_query(prompt):
-    try:
-        response = openai_client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size="1792x1024",
-            quality="standard",
-            n=1,
-        )
-        print(response.data[0]) # For debugging
-        return response.data[0].url
-    except Exception as e:
-        print(e)  # For debugging
-        return "DALL-E Refused to generate image ):"
 
-
-
-        
 to_func = {
     'help': m_help,  # DM
     'h2p': m_h2p,  # DM
@@ -1280,10 +1329,10 @@ to_func = {
     'dead': m_dead,
     'time': m_time,
     'narration': m_narration,
-    'visual':m_visual,
-    'context':m_context,
-    'verbose' : m_verbose,
-    'comms' : m_comms,
+    'visual': m_visual,
+    'context': m_context,
+    'verbose': m_verbose,
+    'comms': m_comms,
 
 }
 
@@ -1297,11 +1346,19 @@ dm_funcs = [
 @discord_client.event
 async def on_message(message):
     print(f"{message.author}: {message.content}")
+    # print(dir(message.author.name))
+    # print(message.author.id)
+    # print(message.author.name)
+    # print("message.guild:", message.guild)
+    # message.channel.type => 'private' if DM'ing the bot.
+    # message.channel.type => 'text' if in the server.
+    # print([vals for vals in discord.ChannelType])
+    # print(message.channel.type)
+    # Bot descriptions and round information.
 
     if message.guild not in servers:
         servers[message.guild] = Server()
-    
- 
+
     if (
         message.channel.type == discord.ChannelType.private
         and message.author.id in allPlayers
@@ -1316,29 +1373,28 @@ async def on_message(message):
         ):
             await check_action(player, server, message)
 
-
     # This is used for player descriptions.
     if (message.content.lower().startswith('i am') and message.channel.type == discord.ChannelType.private):
         if server.players[message.author.id].description == 'a normal human':
             server.players[message.author.id].description = message.content
         else:
             await message.channel.send('You have already submitted a description.')
-    
 
     # This is used to collect conversations.
     if ((not message.content.startswith("m!")) and message.channel.type != discord.ChannelType.private):
+        # print("convos")
         if message.author.id in allPlayers:
             server = servers[allPlayers[message.author.id]]
 
             if message.author.id in allPlayers:
-                server.predictorAI.conversations.append(f"{message.author.name}: {message.content}")
-
-
+                # print("Conversations here")
+                server.predictorAI.conversations.append(
+                    f"{message.author.name}: {message.content}")
 
     # Filters out the MafiAI's messages and messages that don't start with "m!" So move everything above this statement.
     if (message.author == discord_client.user or len(message.content) < 2 or message.content[:2] != "m!"):
         return
-    
+
     query = message.content[2:].split()
     if len(query) and query[0] in commands:
         if (message.channel.type == discord.ChannelType.private and query[0] not in dm_funcs):
@@ -1356,6 +1412,20 @@ discord_client.run(DISCORD_BOT_TOKEN)
 REMEMBER TO REMOVE TOKEN WHEN COMMITTING
 
 
+Possible bugs or to-do:
+- make sure nobody has mafia role upon joining a server (is this necessary?)
+- does the text channel even have to be locked? consider having only private VC
+
+
+REMINDERS:
+- message.author.id (author) is integer, not string
+
+
+NOTES:
+- REMEMBER TO DISTINGUISH BETWEEN COMMANDS YOU CAN USE IN DM AND COMMANDS YOU CAN'T
+
+GAMEPLAY:
+
 All players are initially in both a text channel and a voice chat, and upon gamestart will be DM'd a role by the bot.
 
 Mafia members will be DM'd by the bot, notifying them of the other mafia members, and will update on other mafias' votes.
@@ -1367,6 +1437,8 @@ Doctor and cop will receive a prompt by the bot each night phase
  - Normal cop cannot investigate himself, parity cop can, doctor can save himself if selfsave = 1, mafia cannot selfkill
 
 Daytime discussion should primarily occur in VC, but players can use text channels if they want. Text channel will be used for voting and other in-game commands.
+
+SHOULD VOTING END WHEN EVERYONE VOTES? OR WHEN A MAJORITY EXISTS? (latter is epicmafia.com format)
 
 
 Nighttime will occur in DMs. The main text channel will be locked and nobody will be able to speak there (might need to end game? rethink this).
